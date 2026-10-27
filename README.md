@@ -58,4 +58,5 @@ gradlew.bat build
 架构和设计由我决定，AI 参与了部分实现，所有代码都经人工审查。
 
 Titop — 作者与维护者
+
 SillyPaws是我给本地 AI 编程助手起的名字，用来致敬 LLM 在 coding 中的帮助。
