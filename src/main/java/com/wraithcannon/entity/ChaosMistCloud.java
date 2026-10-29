@@ -46,16 +46,23 @@ import java.util.UUID;
  *   <li><b>刮到</b>（站在喷射轨迹的走廊里，但没被头部扫到）：{@code grazeDamage}，每个目标一次；</li>
  *   <li><b>停留浓雾</b>（聚集阶段待在雾里）：{@code tickDamage}，每 {@value #HIT_INTERVAL} tick 一次。</li>
  * </ul>
- * 结算前把目标的 {@code invulnerableTime} 清零，保证数值就是配置的数值，不被原版无敌帧吞掉。
+ * 结算前把目标的 {@code invulnerableTime} 清零，使伤害不被原版无敌帧吞掉。
  */
 public class ChaosMistCloud extends Entity implements OwnableEntity {
 
     /** 喷射阶段长度：1 秒。 */
     public static final int JET_TICKS = 20;
-    /** 云团停止出粒子的时间点（粒子自己还会再活 1.5~2 秒）。 */
-    public static final int EMIT_END_TICKS = 30;
     /** 持续伤害判定间隔（tick）。 */
     public static final int HIT_INTERVAL = 10;
+
+    /**
+     * 云团停止出粒子的时间点（粒子自己还会再活 1.5~2 秒）。
+     * 动态计算：lifetime - 40，确保最晚出生的粒子能存活到雾团接近消失。
+     * 最小值为 JET_TICKS，即使 lifetime 很短也至少在喷射结束时还在出粒子。
+     */
+    private int getEmitEndTicks() {
+        return Math.max(JET_TICKS, getLifetime() - 40);
+    }
 
     private static final EntityDataAccessor<Float> DATA_RADIUS =
             SynchedEntityData.defineId(ChaosMistCloud.class, EntityDataSerializers.FLOAT);
@@ -119,7 +126,8 @@ public class ChaosMistCloud extends Entity implements OwnableEntity {
                           float damage, float grazeDamage, float tickDamage,
                           float headRatio, float grazeRatio, float grazeForm, Vec3 direction) {
         this.entityData.set(DATA_RADIUS, radius);
-        this.entityData.set(DATA_LIFETIME, Math.max(lifetimeTicks, JET_TICKS + 1));
+        // 确保 lifetime 至少比 JET_TICKS 多 5 tick，给聚集/缩小阶段留出可见的时间
+        this.entityData.set(DATA_LIFETIME, Math.max(lifetimeTicks, JET_TICKS + 5));
         this.entityData.set(DATA_TRAVEL, travel);
         Vec3 dir = direction.lengthSqr() < 1.0E-6 ? new Vec3(0, 0, 1) : direction.normalize();
         this.entityData.set(DATA_DIR, dir.toVector3f());
@@ -183,21 +191,37 @@ public class ChaosMistCloud extends Entity implements OwnableEntity {
         return pos;
     }
 
-    /** 雾团半径：喷射中从 70% 涨到 100%；聚集后缓慢收缩到 0。 */
+    /**
+     * 雾团半径：喷射中从 70% 涨到 100%；聚集后缓慢收缩到 0。
+     * 注意：当 lifetime 很短（如 1 秒 = 20 tick = JET_TICKS）时，
+     * 需要在最后几帧快速缩小。discard 发生在 age >= lifetime，
+     * 所以 radiusAt(lifetime - 1) 是最后一次调用，期望接近 0。
+     */
     private float radiusAt(int t) {
         float r = getRadius();
         int life = getLifetime();
         if (t <= JET_TICKS) {
+            // 喷射阶段：70% → 100%
             return r * (0.7F + 0.3F * (float) t / JET_TICKS);
         }
-        float f = 1.0F - (float) (t - JET_TICKS) / (float) Math.max(1, life - JET_TICKS);
+        // 聚集阶段：100% → 0%
+        // 当 life <= JET_TICKS 时，没有实际的聚集阶段，但为了让碰撞箱能缩小，
+        // 假设从 JET_TICKS 到 life 这段时间（即使只有 0 tick）用于缩小。
+        // 用 Math.max 保证分母至少为 1，避免除零。
+        int shrinkTime = Math.max(1, life - JET_TICKS);
+        // 计算当前在聚集阶段的进度
+        float progress = (float) (t - JET_TICKS) / (float) shrinkTime;
+        // 限制 progress 在 [0, 1] 范围内
+        progress = Math.min(progress, 1.0F);
+        // 半径从 100% 线性缩小到 0%
+        float f = 1.0F - progress;
         return r * Math.max(f, 0.0F);
     }
 
     /**
      * 碰撞箱 = 以雾团中心为中心、边长等于当前直径的立方体。
      *
-     * <p>必须判 {@code entityData == null}：{@code Entity} 构造函数里第一次 {@code setPos}
+     * <p>需要判断 {@code entityData == null}：{@code Entity} 构造函数里第一次 {@code setPos}
      * 就会调用本方法，那时 entityData 还没创建。
      */
     @Override
@@ -242,7 +266,7 @@ public class ChaosMistCloud extends Entity implements OwnableEntity {
     /** 客户端：喷射阶段沿路径密集出粒子（有轨迹），聚集阶段在雾团内部翻腾。 */
     private void spawnClientParticles(Vec3 prev, Vec3 cur) {
         float radius = radiusAt(this.age);
-        if (radius < 0.05F || this.age > EMIT_END_TICKS) {
+        if (radius < 0.05F || this.age > getEmitEndTicks()) {
             return;
         }
         boolean jet = this.age <= JET_TICKS;

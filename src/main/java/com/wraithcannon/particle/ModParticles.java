@@ -15,7 +15,7 @@ import java.util.function.Supplier;
  * （Forge 粒子文档：「an overrideLimiter which determines whether the particle renders regardless of distance」）。
  * 传 {@code false} 时，原版客户端会丢弃离镜头超过 32 格的粒子，
  * 并受「粒子效果：减少/最少」设置影响，远距离的雾会看不到。
- * 这里传 true，保证长射程下整条雾带都可见。
+ * 这里传 true，使长射程下整条雾带可见。
  */
 public class ModParticles {
 

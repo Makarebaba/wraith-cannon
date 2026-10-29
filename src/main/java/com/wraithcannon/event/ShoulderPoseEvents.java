@@ -1,6 +1,7 @@
 package com.wraithcannon.event;
 
 import com.wraithcannon.WraithCannon;
+import com.wraithcannon.client.ClientAnimState;
 import com.wraithcannon.item.WraithCannonItem;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.world.InteractionHand;
@@ -59,12 +60,20 @@ public class ShoulderPoseEvents {
             }
             return;
         }
-        if (player == null || !isShouldering(player)) {
+        if (player == null || !(player.getMainHandItem().getItem() instanceof WraithCannonItem)) {
             return;
         }
-
-        float t = Math.min(1.0F, (player.getTicksUsingItem() + event.getPartialTick()) / RAISE_TICKS);
-        float k = t * t * (3.0F - 2.0F * t);   // smoothstep
+        float k;
+        if (isShouldering(player)) {
+            float t = Math.min(1.0F, (player.getTicksUsingItem() + event.getPartialTick()) / RAISE_TICKS);
+            k = t * t * (3.0F - 2.0F * t);   // smoothstep
+        } else {
+            // 开火后：偏移与 fire 动画同步回落，而不是松手瞬间归零
+            k = ClientAnimState.fireShoulderFactor();
+        }
+        if (k <= 0.0F) {
+            return;
+        }
         // 左撇子时镜像 X
         float side = player.getMainArm() == HumanoidArm.RIGHT ? 1.0F : -1.0F;
 

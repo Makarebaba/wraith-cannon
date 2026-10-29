@@ -19,8 +19,8 @@ import net.minecraft.core.particles.SimpleParticleType;
  *   <li>多色暗调：贴图本身已经是暗紫/暗绿/暗金/暗红的烟雾</li>
  * </ul>
  *
- * <p><b>重要</b>：颜色来自贴图本身，不要再用 {@code setColor()} 二次压暗。
- * 贴图已经是暗色调，再乘一层暗色会让粒子变成几乎纯黑，看起来像黑色方块。
+ * <p>颜色来自贴图本身，不使用 {@code setColor()} 二次压暗：
+ * 贴图已是暗色调，再叠一层暗色会让粒子接近纯黑。
  * 想要颜色变化，靠 {@code particles/chaos_mist.json} 里列的多张贴图轮播。
  */
 public class ChaosMistParticle extends TextureSheetParticle {
@@ -102,7 +102,7 @@ public class ChaosMistParticle extends TextureSheetParticle {
 
     @Override
     public ParticleRenderType getRenderType() {
-        // 贴图带透明通道，必须用半透明层
+        // 贴图带透明通道，使用半透明渲染层
         return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
     }
 

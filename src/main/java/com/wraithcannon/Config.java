@@ -54,9 +54,37 @@ public class Config {
             .defineInRange("mist.tickDamage", 5.0D, 0.0D, 1000.0D);
 
     public static final ModConfigSpec.DoubleValue MIST_RECOIL = BUILDER
-            .comment("喷雾后坐力（水平冲量，0 = 无，默认 0.4 = 轻微后退；上限 3.0 以防把自己弹飞）")
+            .comment("喷雾后坐力强度（速度冲量，格/tick）。0 = 无；默认 0.4 = 轻微后退；上限 3.0 以防把自己弹飞。",
+                    "水平后坐沿视线反方向；越接近垂直射击水平后坐越小（最多减弱 70%）。垂直分量见 mist.verticalRecoilMultiplier，水中见 mist.waterRecoilMultiplier。",
+                    "Recoil strength after firing (velocity impulse, blocks/tick). 0 = none; default 0.4 = a slight push; max 3.0 so you cannot launch yourself too far.",
+                    "Horizontal recoil points opposite to where you aim and weakens as the shot gets closer to vertical (up to -70%).",
+                    "For the vertical part see mist.verticalRecoilMultiplier; for water see mist.waterRecoilMultiplier.")
             .translation("wraith_cannon.configuration.mist.recoil")
             .defineInRange("mist.recoil", 0.4D, 0.0D, 3.0D);
+
+    public static final ModConfigSpec.DoubleValue MIST_VERTICAL_RECOIL_MULTIPLIER = BUILDER
+            .comment("垂直后坐倍率（默认 0.8）。垂直冲量 = mist.recoil × 此值 × 俯仰曲线。0 = 关闭垂直后坐，只保留水平后坐。",
+                    "陆地：只有接近垂直射击才有垂直后坐——俯仰角绝对值低于 mist.verticalRecoilPitchThreshold 为 0，之后平滑增强，约 85 度达到最大。",
+                    "向下射 → 向上推，向上射 → 向下压。",
+                    "水中：不设角度门槛，按 sin(俯仰角) 线性变化，再乘 mist.waterRecoilMultiplier。",
+                    "Vertical recoil multiplier (default 0.8). Vertical impulse = mist.recoil x this value x pitch curve. 0 = disable vertical recoil and keep only horizontal recoil.",
+                    "On land: vertical recoil only applies to near-vertical shots - zero while |pitch| is below mist.verticalRecoilPitchThreshold, then ramping up smoothly to its maximum at about 85 degrees.",
+                    "Shooting down pushes you up; shooting up pushes you down.",
+                    "In water: no pitch threshold - the curve is linear in sin(pitch), then multiplied by mist.waterRecoilMultiplier.")
+            .translation("wraith_cannon.configuration.mist.verticalRecoilMultiplier")
+            .defineInRange("mist.verticalRecoilMultiplier", 0.8D, 0.0D, 3.0D);
+
+    public static final ModConfigSpec.DoubleValue MIST_VERTICAL_RECOIL_PITCH_THRESHOLD = BUILDER
+            .comment("陆地垂直后坐的俯仰角门槛（度，默认 70，范围 60~80）。|俯仰角| 低于此值时陆地上没有垂直后坐；调低则更容易触发。",
+                    "Pitch threshold (degrees, default 70, range 60-80) for vertical recoil on land. Below this |pitch| there is no vertical recoil on land; lower values trigger it more easily.")
+            .translation("wraith_cannon.configuration.mist.verticalRecoilPitchThreshold")
+            .defineInRange("mist.verticalRecoilPitchThreshold", 70.0D, 60.0D, 80.0D);
+
+    public static final ModConfigSpec.DoubleValue MIST_WATER_RECOIL_MULTIPLIER = BUILDER
+            .comment("在水中时，整个后坐力（水平 + 垂直）乘以此倍率（默认 0.4，模拟水的阻力）。1.0 = 与陆地相同；0 = 水中无后坐力。",
+                    "While in water, the whole recoil (horizontal + vertical) is multiplied by this value (default 0.4, simulating water drag). 1.0 = same as on land; 0 = no recoil in water.")
+            .translation("wraith_cannon.configuration.mist.waterRecoilMultiplier")
+            .defineInRange("mist.waterRecoilMultiplier", 0.4D, 0.0D, 2.0D);
 
     public static final ModConfigSpec.IntValue MIST_CLOUD_SECONDS = BUILDER
             .comment("浓雾云存在时长（秒），默认约 3 秒")
@@ -75,8 +103,10 @@ public class Config {
             .defineInRange("mist.headRatio", 1.0D, 0.1D, 3.0D);
 
     public static final ModConfigSpec.DoubleValue MIST_GRAZE_RATIO = BUILDER
-            .comment("「刮到」走廊半径 = 雾团半径 × 此值（默认 2.0）。设为 0 = 关闭刮到判定。",
-                    "不会小于头部判定，且走廊实际半径上限 32 格")
+            .comment("「刮到」走廊半径 = 雾团半径 × 此值（默认 2）。设为 0 = 关闭刮到判定。",
+                    "不会小于头部判定，且走廊实际半径上限 32 格",
+                    "Graze corridor radius = cloud radius x this value (default 2). 0 = disable grazing.",
+                    "Never smaller than the direct-hit radius; the corridor radius is capped at 32 blocks.")
             .translation("wraith_cannon.configuration.mist.grazeRatio")
             .defineInRange("mist.grazeRatio", 2.0D, 0.0D, 8.0D);
 

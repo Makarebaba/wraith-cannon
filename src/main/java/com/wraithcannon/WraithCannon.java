@@ -23,7 +23,7 @@ public class WraithCannon {
     public static final Logger LOGGER = LoggerFactory.getLogger("WraithCannon");
 
     public WraithCannon(IEventBus modEventBus, ModContainer modContainer) {
-        // 必须最先注册：物品属性（伤害 / 攻速 / 耐久）在 ModItems 类加载时就要读取启动配置
+        // 先注册启动配置：物品属性（伤害 / 攻速 / 耐久）在 ModItems 类加载时就要读取启动配置
         modContainer.registerConfig(ModConfig.Type.STARTUP, StartupConfig.SPEC);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 

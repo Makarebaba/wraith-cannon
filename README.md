@@ -1,3 +1,5 @@
+# README
+
 # 冤魂炮（Wraith Cannon）
 
 Minecraft 1.21.1 NeoForge 模组。
@@ -20,7 +22,7 @@ Minecraft 1.21.1 NeoForge 模组。
 
 首次运行后生成两个文件：
 
-- `config/wraith_cannon-common.toml`：蓄力时间、冷却、射程、各档伤害、判定范围、穿墙、宠物免伤、手感、持有缓慢等，进游戏后可热改（部分联机项需服务端与客户端一致）。
+- `config/wraith_cannon-common.toml`：蓄力时间、冷却、射程、各档伤害、判定范围、穿墙、宠物免伤、后坐力（含俯仰角垂直后坐、水中倍率）、手感、持有缓慢等，进游戏后可热改（部分联机项需服务端与客户端一致）。
 - `config/wraith_cannon-startup.toml`：近战附加伤害、近战攻速、耐久。这三项要在物品注册时读取，修改后需重启游戏。
 
 每项都有注释。可在「模组列表 → 冤魂炮 → 配置」用 NeoForge 自带界面修改（带中英文名称与提示），
@@ -43,19 +45,19 @@ gradlew.bat build
 
 ### 武器模型展示图
 
-![冤魂炮模型展示图](artwork/wraith_cannon_model_showcase.png)
+![冤魂炮模型展示图](assets/wraith_cannon_model_showcase-20261029100626-2zsszcw.png)
 
 ### 模组封面图
 
-![冤魂炮模组封面图](artwork/wraith_cannon_mod_cover.png)
+![冤魂炮模组封面图](assets/wraith_cannon_mod_cover-20261029100626-5e8ni84.png)
 
 ## 许可证
 
 本项目以 MIT 协议发布，见 `LICENSE`。
 
 ### 鸣谢
-本项目使用AI辅助制作。
-架构和设计由我决定，AI 参与了部分实现，所有代码都经人工审查。
+
+本项目使用AI辅助制作。 架构和设计由我决定，AI 参与了部分实现，所有代码都经人工审查。
 
 Titop — 作者与维护者
 

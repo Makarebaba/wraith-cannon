@@ -91,6 +91,11 @@ tasks.named('jar') {
     from sourceSets.main.output.resourcesDir
 }
 
+// 构建可复现：JAR 条目不写入编译时间（否则会暴露工作时间），同一源码每次编译的产物字节一致
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }

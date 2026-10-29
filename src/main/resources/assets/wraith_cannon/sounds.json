@@ -38,12 +38,12 @@
   "blast": {
     "subtitle": "subtitles.wraith_cannon.blast",
     "sounds": [
-      { "name": "minecraft:entity.generic.explode", "type": "event", "volume": 0.8, "pitch": 0.6 }
+      { "name": "minecraft:entity.generic.explode", "type": "event", "volume": 0.6, "pitch": 0.6 }
     ]
   },
   "blast_hiss": {
     "sounds": [
-      { "name": "minecraft:item.firecharge.use", "type": "event", "volume": 1.0, "pitch": 0.5 }
+      { "name": "minecraft:item.firecharge.use", "type": "event", "volume": 0.8, "pitch": 0.5 }
     ]
   },
   "mist_flow": {

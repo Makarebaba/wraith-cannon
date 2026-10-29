@@ -12,6 +12,9 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.PacketDistributor;
+import com.wraithcannon.network.RecoilPayload;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -124,7 +127,7 @@ public class WraithCannonItem extends Item implements GeoItem {
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        // 转场 0 tick：转场期间新动画不推进，左键「点了不立刻砸」就是这段延迟。
+        // 转场 0 tick：转场期间新动画不推进，左键「点了不立刻砸」可能就来自这段延迟。
         // 待机 / 蓄力由 predicate 根据「当前客户端玩家是否在按住右键」决定，不依赖服务端回包，
         // 所以取消蓄力会立刻回待机，不会卡在蓄力姿势；砸击和开火是一次性触发动画，播完自动回 predicate。
         controllers.add(new AnimationController<>(this, CONTROLLER_MAIN, 0, this::animationPredicate)
@@ -218,7 +221,7 @@ public class WraithCannonItem extends Item implements GeoItem {
 
     @Override
     public UseAnim getUseAnimation(ItemStack stack) {
-        // NONE：不要原版「拉弓/吃东西」的手臂动作，姿势交给骨骼动画
+        // NONE：不使用原版「拉弓/吃东西」的手臂动作，姿势交给骨骼动画
         return UseAnim.NONE;
     }
 
@@ -279,6 +282,13 @@ public class WraithCannonItem extends Item implements GeoItem {
             if (charged) {
                 triggerAnim(player, GeoItem.getId(stack), CONTROLLER_MAIN, TRIGGER_FIRE);
                 ClientAnimState.kickMuzzle(player);
+                // 客户端也要加短暂冷却，防止开火动画播放期间再次按右键导致闪烁
+                // 冷却时长至少要覆盖开火动画长度（约 1 秒 = 20 tick）
+                // 取 min：配置的冷却比 20 短时不要把客户端锁得比服务端还久
+                int lock = Math.min(20, Config.MIST_COOLDOWN_TICKS.get());
+                if (lock > 0) {
+                    player.getCooldowns().addCooldown(this, lock);
+                }
             }
             return;
         }
@@ -332,16 +342,74 @@ public class WraithCannonItem extends Item implements GeoItem {
                 look);
         level.addFreshEntity(cloud);
 
-        // 后坐力
-        double recoil = Config.MIST_RECOIL.get();
-        player.push(-look.x * recoil, 0.12 * recoil, -look.z * recoil);
-        // 让客户端接受这次速度变更，否则玩家本地看不到位移
-        player.hurtMarked = true;
+        applyRecoil(player, look);
 
         ModSounds.play(level, player, ModSounds.BLAST, 1.0F, 1.0F);
         ModSounds.play(level, player, ModSounds.BLAST_HISS, 1.0F, 1.0F);
-        // 注意：这里不要再放原版 EXPLOSION 粒子，它是白色烟团，
-        // 就是游戏里「浓雾中间一圈白边/白斑」的来源。
+        // 这里不放原版 EXPLOSION 粒子，它是白色烟团，
+        // 它可能造成浓雾中间的白边 / 白斑。
+    }
+
+    /** 陆地垂直后坐达到最大值的俯仰角（度）；门槛由配置决定，且保证至少比门槛大 5 度。 */
+    private static final double LAND_VERTICAL_FULL_DEG = 85.0;
+
+    /**
+     * 基于俯仰角的后坐力。
+     *
+     * <p>MC 的俯仰角约定：{@code xRot} 向<b>下</b>看为正（+90 = 看脚下），向上看为负（-90 = 看天）。
+     * 后坐力方向与枪口方向相反：向下射 → 垂直分量向上；向上射 → 向下。
+     *
+     * <p><b>陆地</b>：垂直后坐只在接近垂直射击时出现——|俯仰角| 小于配置门槛（mist.verticalRecoilPitchThreshold，默认 70 度）为 0，
+     * 之后按 smoothstep 平滑增强，约 {@value #LAND_VERTICAL_FULL_DEG} 度达到最大。
+     * 原因：常见的斜向射击不应频繁把玩家弹离地面；目前的做法是只在接近垂直时才给垂直冲量。
+     * <br><b>水中</b>：没有门槛，垂直分量按 {@code sin(俯仰角)} 线性变化（水里本来就没有「站稳」的概念，
+     * 游泳时靠它调整上浮 / 下潜），再整体乘 {@code mist.waterRecoilMultiplier}。
+     *
+     * <p>水平分量沿视线水平投影的反方向；垂直越强水平越弱（最多 -70%）。
+     *
+     * <p>冲量不在服务端 {@code push}，而是发给该玩家的客户端叠加到当前速度上，原因见 {@link RecoilPayload}。
+     */
+    private static void applyRecoil(Player player, Vec3 look) {
+        if (!(player instanceof ServerPlayer serverPlayer)) {
+            return;
+        }
+        double recoil = Config.MIST_RECOIL.get();
+        if (recoil <= 0.0) {
+            return;
+        }
+        double pitch = player.getXRot();
+        double sinPitch = Math.sin(Math.toRadians(pitch));   // +1 看脚下，-1 看天
+        boolean inWater = player.isInWater();
+
+        // 垂直曲线，范围 [-1, 1]：正 = 向上推
+        double shape;
+        if (inWater) {
+            shape = sinPitch;
+        } else {
+            double start = Config.MIST_VERTICAL_RECOIL_PITCH_THRESHOLD.get();
+            double full = Math.max(LAND_VERTICAL_FULL_DEG, start + 5.0);
+            double t = Mth.clamp((Math.abs(pitch) - start) / (full - start), 0.0, 1.0);
+            shape = Math.signum(sinPitch) * t * t * (3.0 - 2.0 * t);
+        }
+
+        double vertical = recoil * Config.MIST_VERTICAL_RECOIL_MULTIPLIER.get() * shape;
+        double horizontal = recoil * (1.0 - Math.abs(shape) * 0.7);
+        double hx = 0.0;
+        double hz = 0.0;
+        double hLen = Math.sqrt(look.x * look.x + look.z * look.z);
+        if (hLen > 1.0E-4) {
+            hx = -look.x / hLen * horizontal;
+            hz = -look.z / hLen * horizontal;
+        }
+
+        if (inWater) {
+            double water = Config.MIST_WATER_RECOIL_MULTIPLIER.get();
+            hx *= water;
+            hz *= water;
+            vertical *= water;
+        }
+
+        PacketDistributor.sendToPlayer(serverPlayer, new RecoilPayload(hx, vertical, hz));
     }
 
     /**
@@ -367,6 +435,11 @@ public class WraithCannonItem extends Item implements GeoItem {
                 lastY = by;
                 lastZ = bz;
                 cursor.set(bx, by, bz);
+                // 未加载的区块：直接在此停下。ServerLevel#getBlockState 碰到未加载区块会同步加载 / 生成它，
+                // 在主线程上就是一次明显的卡顿（模组多、区块加载慢的环境尤其明显）。
+                if (!level.hasChunkAt(cursor)) {
+                    return d;
+                }
                 solid = !level.getBlockState(cursor).getCollisionShape(level, cursor).isEmpty();
             }
             if (!solid) {
@@ -414,7 +487,7 @@ public class WraithCannonItem extends Item implements GeoItem {
         }
         // 提前分配 GeckoLib 的动画实例 id。
         // 若等到第一次右键才分配，物品栈组件会在蓄力那一刻变化：客户端既会播「换装」动画，
-        // 渲染器也会从「无 id」的动画状态切到「有 id」的新状态——就是首次长按右键时的那一下闪烁。
+        // 渲染器也会从「无 id」的动画状态切到「有 id」的新状态——推测这是首次长按右键时出现一下闪烁的原因。
         if (level instanceof ServerLevel serverLevel) {
             GeoItem.getOrAssignId(stack, serverLevel);
         }
@@ -486,7 +559,7 @@ public class WraithCannonItem extends Item implements GeoItem {
 
     /**
      * 原版 Item 的这个方法就是「手持此物时能否开始破坏方块」，
-     * 文档明确写着「近战武器应该重写成 false，除非它同时是工具」。
+     * 按其文档，近战武器宜重写成 false（除非它同时是工具）。
      * 返回 false 后，左键点方块不会出裂纹、不会破坏，创造 / 生存都一样。
      */
     @Override
@@ -494,7 +567,7 @@ public class WraithCannonItem extends Item implements GeoItem {
         return false;
     }
 
-    // 挖方块不掉耐久——一把炮不该被石头磨坏
+    // 挖方块不扣耐久
 
     @Override
     public boolean mineBlock(ItemStack stack, Level level, BlockState state, BlockPos pos, LivingEntity miningEntity) {

@@ -44,8 +44,40 @@ public final class ClientAnimState {
     // ---- 开火后枪口上跳：把总角度分几 tick 逐步抬起镜头 ----
     private static float pendingKick;
 
+    /** 本机玩家最近一次开火的时间（System.nanoTime）；0 = 从未开火。 */
+    private static long lastFireNanos;
+
+    /** fire 动画总长（秒），与 animation.json 一致。 */
+    public static final float FIRE_ANIM_SECONDS = 0.8F;
+    /** fire 动画里「保持扛肩姿势」的时长（秒）：0.45 秒时姿势回到与蓄力定格相同，之后才开始回落到待机。 */
+    public static final float FIRE_HOLD_SECONDS = 0.45F;
+
+    /**
+     * 开火后「扛肩偏移」的保留系数：0.45 秒内保持 1，随后在 fire 动画回落段（0.45~0.8 秒）内
+     * 按 easeInOutCubic 降到 0；不在开火动画里返回 0。
+     *
+     * <p>fire 动画的起始姿势就是「扛肩」姿势（带 Java 侧的手部偏移），若在松开右键那一帧把偏移
+     * 瞬间清零，武器会先跳到别处再播动画；因此让偏移与动画同步回落。
+     */
+    public static float fireShoulderFactor() {
+        if (lastFireNanos == 0L) {
+            return 0.0F;
+        }
+        float t = (System.nanoTime() - lastFireNanos) / 1.0E9F;
+        if (t < 0.0F || t >= FIRE_ANIM_SECONDS) {
+            return 0.0F;
+        }
+        if (t <= FIRE_HOLD_SECONDS) {
+            return 1.0F;
+        }
+        float u = (t - FIRE_HOLD_SECONDS) / (FIRE_ANIM_SECONDS - FIRE_HOLD_SECONDS);
+        float eased = u < 0.5F ? 4.0F * u * u * u : 1.0F - (float) Math.pow(-2.0F * u + 2.0F, 3) / 2.0F;
+        return 1.0F - eased;
+    }
+
     public static void kickMuzzle(Player player) {
         if (isLocalPlayer(player)) {
+            lastFireNanos = System.nanoTime();
             pendingKick += com.wraithcannon.Config.MUZZLE_CLIMB.get().floatValue();
         }
     }

@@ -20,10 +20,10 @@ import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
  *   <li>给 {@code ChaosMistCloud} 注册一个空渲染器</li>
  * </ol>
  *
- * <p><b>为什么必须注册实体渲染器</b>：1.21.1 的
+ * <p><b>为什么注册实体渲染器</b>：1.21.1 的
  * {@code EntityRenderDispatcher.shouldRender} 会直接对
- * {@code getRenderer(entity)} 的返回值调用方法，拿不到渲染器就是 NPE，
- * 整个渲染线程崩掉。云雾实体本身没有模型，用
+ * {@code getRenderer(entity)} 的返回值调用方法，拿不到渲染器会出现 NPE，
+ * 导致客户端崩溃。云雾实体本身没有模型，用
  * {@link NoopRenderer} 占位即可——它的视觉全靠粒子。
  *
  * <p>物品渲染器不在这里注册：GeckoLib 通过
@@ -42,7 +42,7 @@ public class ClientEvents {
     @SubscribeEvent
     public static void registerEntityRenderers(EntityRenderersEvent.RegisterRenderers event) {
         // 云雾没有模型，视觉完全由粒子承担。
-        // 不注册会直接崩客户端，见类注释。
+        // 不注册可能崩溃，见类注释。
         event.registerEntityRenderer(ModEntities.CHAOS_MIST.get(), NoopRenderer::new);
     }
 }

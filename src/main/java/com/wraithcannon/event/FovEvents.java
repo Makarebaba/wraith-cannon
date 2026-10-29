@@ -18,7 +18,7 @@ import net.neoforged.neoforge.client.event.ComputeFovModifierEvent;
  * <p>{@link ComputeFovModifierEvent}：NeoForge 在原版算完玩家 FOV 修正之后触发（仅客户端、主事件总线，
  * 不可取消），允许再调整一次；{@code setNewFovModifier} 设置最终值。
  *
- * <p>拉近量随蓄力进度按平方曲线增长（前慢后快，和拉弓的手感一致），蓄满时缩小 {@code feel.chargeZoom}（默认 0.10，上限 0.15 = 弓）。
+ * <p>拉近量随蓄力进度按平方曲线增长（前慢后快，和拉弓的手感一致），蓄满时缩小 {@code feel.chargeZoom}（默认 0.15，上限 0.15 = 弓）。
  * 同时乘上玩家的「视野效果」辅助功能滑块（设为 0 就完全不拉近），和原版对待弓的方式一致。
  */
 @EventBusSubscriber(modid = WraithCannon.MOD_ID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
