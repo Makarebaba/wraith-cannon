@@ -45,11 +45,11 @@ gradlew.bat build
 
 ### 武器模型展示图
 
-![冤魂炮模型展示图](assets/wraith_cannon_model_showcase-20261029100626-2zsszcw.png)
+![冤魂炮模型展示图](artwork/wraith_cannon_model_showcase.png)
 
 ### 模组封面图
 
-![冤魂炮模组封面图](assets/wraith_cannon_mod_cover-20261029100626-5e8ni84.png)
+![冤魂炮模组封面图](artwork/wraith_cannon_mod_cover.png)
 
 ## 许可证
 
